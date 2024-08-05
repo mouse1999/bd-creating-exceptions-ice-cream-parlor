@@ -1,12 +1,15 @@
 package com.amazon.ata.creatingexceptions;
 
 import com.amazon.ata.creatingexceptions.dao.CartonDao;
+import com.amazon.ata.creatingexceptions.exception.FlavorOutOfStockException;
 import com.amazon.ata.creatingexceptions.exception.NoSuchFlavorException;
+import com.amazon.ata.creatingexceptions.model.Carton;
 import com.amazon.ata.creatingexceptions.model.Flavor;
 import com.amazon.ata.creatingexceptions.model.Scoop;
 import com.amazon.ata.creatingexceptions.model.Sundae;
 import com.amazon.ata.creatingexceptions.dao.S3CartonDao;
 
+import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.google.common.collect.Lists;
 
@@ -34,8 +37,22 @@ public class IceCreamParlorService {
      * @param flavorName - the flavor of the ice cream scoop to retrieve.
      * @return a scoop of the desired ice cream flavor.
      */
-    public Scoop getScoop(String flavorName) {
-        Flavor scoopFlavor = cartonDao.getCarton(flavorName).getFlavor();
+    public Scoop getScoop(String flavorName) throws NoSuchFlavorException {
+        Carton carton = cartonDao.getCarton(flavorName);
+
+        Flavor scoopFlavor;
+        try {
+            scoopFlavor = carton.getFlavor();
+        } catch (ResourceNotFoundException ex) {
+            throw new NoSuchFlavorException(String.format("We don't serve a flavor called [%s]!", flavorName), ex);
+        }
+        try {
+            carton.removeScoops(1);
+        } catch (IllegalArgumentException ex) {
+            throw new FlavorOutOfStockException("flavour out of stock");
+        }
+
+
 
         return new Scoop(scoopFlavor);
     }
@@ -53,7 +70,7 @@ public class IceCreamParlorService {
         for (String flavorName : flavorNames) {
             try {
                 flavors.add(cartonDao.getCarton(flavorName).getFlavor());
-            } catch (AmazonS3Exception ex) {
+            } catch (ResourceNotFoundException ex) {
                 throw new NoSuchFlavorException(String.format("We don't serve a flavor called [%s]!", flavorName));
             }
         }

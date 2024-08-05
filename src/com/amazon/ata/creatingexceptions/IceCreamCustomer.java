@@ -26,7 +26,7 @@ public class IceCreamCustomer {
 
         try {
             iceCreamParlorService.getScoop(flavor);
-        } catch (AmazonS3Exception ex) {
+        } catch (NoSuchFlavorException ex) {
             return SAD;
         }
 
